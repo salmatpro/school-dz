@@ -1,6 +1,716 @@
-<!-- استمرار الكود من حيث توقف -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="نظام إدارة المدارس الذكي المتكامل - حل متقدم للإدارة التعليمية">
+    <meta name="keywords" content="نظام مدرسي, إدارة تلاميذ, حضور وغياب, تقارير تعليمية">
+    
+    <!-- PWA Configuration -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#006233">
+    <link rel="apple-touch-icon" href="/icon-192x192.png">
+    
+    <title>🏫 النظام الذكي لإدارة المدارس | نسخة متقدمة</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- External Libraries (Lazy Load) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        /* ========== CSS Variables ========== */
+        :root {
+            --primary-color: #006233;
+            --primary-dark: #004d26;
+            --primary-light: #e8f5e9;
+            --secondary-color: #2196f3;
+            --accent-color: #ff9800;
+            --danger-color: #f44336;
+            --success-color: #4caf50;
+            --warning-color: #ffc107;
+            --dark-color: #2c3e50;
+            --light-color: #f8f9fa;
+            --gray-color: #6c757d;
+            
+            --gradient-primary: linear-gradient(135deg, #006233 0%, #2E7D32 100%);
+            --gradient-secondary: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+            --gradient-accent: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+            
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.1);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.15);
+            --shadow-xl: 0 16px 48px rgba(0,0,0,0.2);
+            
+            --border-radius-sm: 8px;
+            --border-radius-md: 12px;
+            --border-radius-lg: 16px;
+            --border-radius-xl: 24px;
+            
+            --transition-fast: 0.2s ease;
+            --transition-normal: 0.3s ease;
+            --transition-slow: 0.5s ease;
+        }
+        
+        /* ========== Dark Mode ========== */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #00a85d;
+                --dark-color: #ffffff;
+                --light-color: #121212;
+                --gray-color: #b0b0b0;
+            }
+            body {
+                background: #121212;
+                color: #ffffff;
+            }
+            .card {
+                background: #1e1e1e;
+                border: 1px solid #333;
+            }
+            table {
+                background: #1e1e1e;
+            }
+            td {
+                border-color: #333;
+            }
+        }
+        
+        /* ========== Reset & Base ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+            min-height: 100vh;
+            color: var(--dark-color);
+            line-height: 1.6;
+        }
+        
+        /* ========== Custom Scrollbar ========== */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+        
+        /* ========== Preloader ========== */
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--gradient-primary);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity var(--transition-normal);
+        }
+        
+        .preloader-content {
+            text-align: center;
+            color: white;
+        }
+        
+        .loader {
+            width: 80px;
+            height: 80px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* ========== Header ========== */
+        .glass-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: var(--shadow-md);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding: 15px 0;
+        }
+        
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--gradient-primary);
+            border-radius: var(--border-radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+        
+        .logo-text h1 {
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--primary-color);
+            margin: 0;
+        }
+        
+        .logo-text p {
+            font-size: 14px;
+            color: var(--gray-color);
+            margin: 0;
+        }
+        
+        /* ========== Container & Layout ========== */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* ========== Cards ========== */
+        .card {
+            background: white;
+            border-radius: var(--border-radius-lg);
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: var(--shadow-md);
+            transition: all var(--transition-normal);
+            border: 1px solid rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--gradient-primary);
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .card-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        /* ========== Buttons ========== */
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: var(--border-radius-md);
+            font-family: 'Cairo', sans-serif;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 98, 51, 0.3);
+        }
+        
+        .btn-secondary {
+            background: var(--gradient-secondary);
+            color: white;
+        }
+        
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: var(--warning-color);
+            color: #333;
+        }
+        
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        
+        /* ========== Forms ========== */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+            color: var(--dark-color);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: var(--border-radius-md);
+            font-family: 'Cairo', sans-serif;
+            font-size: 15px;
+            transition: all var(--transition-normal);
+            background: white;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 98, 51, 0.1);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .input-group .form-control {
+            flex: 1;
+        }
+        
+        /* ========== Tables ========== */
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: white;
+            border-radius: var(--border-radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .data-table th {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 18px;
+            font-weight: 700;
+            text-align: center;
+            position: relative;
+        }
+        
+        .data-table th::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 20%;
+            height: 60%;
+            width: 1px;
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .data-table th:last-child::after {
+            display: none;
+        }
+        
+        .data-table td {
+            padding: 16px;
+            border-bottom: 1px solid #f0f0f0;
+            text-align: center;
+            transition: background var(--transition-fast);
+        }
+        
+        .data-table tbody tr {
+            transition: all var(--transition-fast);
+        }
+        
+        .data-table tbody tr:hover {
+            background: var(--primary-light);
+            transform: scale(1.01);
+        }
+        
+        /* ========== Badges ========== */
+        .badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        
+        .badge-success {
+            background: #e8f5e9;
+            color: var(--primary-color);
+        }
+        
+        .badge-warning {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .badge-danger {
+            background: #ffebee;
+            color: var(--danger-color);
+        }
+        
+        .badge-info {
+            background: #e3f2fd;
+            color: var(--secondary-color);
+        }
+        
+        /* ========== Tabs ========== */
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-md);
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+        
+        .nav-tab {
+            padding: 14px 24px;
+            background: transparent;
+            border: 2px solid transparent;
+            border-radius: var(--border-radius-md);
+            cursor: pointer;
+            font-weight: 700;
+            color: var(--gray-color);
+            transition: all var(--transition-normal);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+        }
+        
+        .nav-tab:hover {
+            background: var(--primary-light);
+            color: var(--primary-color);
+        }
+        
+        .nav-tab.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        .nav-tab.active::before {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 3px;
+            background: white;
+            border-radius: 2px;
+        }
+        
+        /* ========== Statistics Cards ========== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: var(--border-radius-lg);
+            text-align: center;
+            box-shadow: var(--shadow-md);
+            transition: all var(--transition-normal);
+            border-top: 4px solid var(--primary-color);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .stat-number {
+            font-size: 42px;
+            font-weight: 900;
+            color: var(--primary-color);
+            margin: 15px 0;
+        }
+        
+        .stat-label {
+            font-size: 16px;
+            color: var(--gray-color);
+            font-weight: 600;
+        }
+        
+        /* ========== Charts ========== */
+        .chart-container {
+            background: white;
+            border-radius: var(--border-radius-lg);
+            padding: 25px;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 25px;
+        }
+        
+        /* ========== Alerts & Notifications ========== */
+        .alert {
+            padding: 18px 22px;
+            border-radius: var(--border-radius-md);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-right: 5px solid;
+        }
+        
+        .alert-success {
+            background: #e8f5e9;
+            border-right-color: var(--success-color);
+            color: #1b5e20;
+        }
+        
+        .alert-danger {
+            background: #ffebee;
+            border-right-color: var(--danger-color);
+            color: #c62828;
+        }
+        
+        .alert-warning {
+            background: #fff3e0;
+            border-right-color: var(--warning-color);
+            color: #ef6c00;
+        }
+        
+        .alert-info {
+            background: #e3f2fd;
+            border-right-color: var(--secondary-color);
+            color: #1565c0;
+        }
+        
+        /* ========== Utility Classes ========== */
+        .hidden {
+            display: none !important;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .mt-20 {
+            margin-top: 20px;
+        }
+        
+        .mb-20 {
+            margin-bottom: 20px;
+        }
+        
+        .w-100 {
+            width: 100%;
+        }
+        
+        /* ========== Animations ========== */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+        
+        /* ========== Responsive Design ========== */
+        @media (max-width: 992px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+            
+            .nav-tabs {
+                flex-direction: column;
+            }
+            
+            .nav-tab {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            
+            .logo {
+                flex-direction: column;
+            }
+            
+            .card-title {
+                font-size: 18px;
+            }
+            
+            .btn {
+                padding: 12px 20px;
+                font-size: 14px;
+            }
+            
+            .data-table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .card {
+                padding: 15px;
+            }
+            
+            .btn {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            
+            .input-group {
+                flex-direction: column;
+            }
+        }
+        
+        /* ========== Print Styles ========== */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            
+            .card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
+            
+            .btn {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Preloader -->
+    <div id="preloader">
+        <div class="preloader-content">
+            <div class="loader"></div>
+            <h2 style="color: white; margin-bottom: 10px;">🏫 النظام الذكي</h2>
+            <p style="color: rgba(255,255,255,0.9);">جاري تحميل نظام إدارة المدرسة...</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="glass-header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-school"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>النظام الذكي لإدارة المدارس</h1>
+                    <p>الحل المتكامل للإدارة التعليمية الذكية</p>
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <button id="themeToggle" class="btn btn-sm" style="background: var(--primary-light); color: var(--primary-color);">
+                    <i class="fas fa-moon"></i> تبديل المظهر
+                </button>
+                <button id="logoutBtn" class="btn btn-sm btn-danger hidden">
+                    <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container">
         <!-- Authentication Section -->
-        <section id="authSection" class="card fade-in">
+         <section id="authSection" class="card fade-in">
             <div class="card-title">
                 <i class="fas fa-lock"></i> بوابة الدخول الآمنة
             </div>
@@ -560,14 +1270,14 @@
         // FIREBASE CONFIGURATION (Replace with your config)
         // ============================================
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            projectId: "YOUR_PROJECT",
-            storageBucket: "YOUR_PROJECT.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
+  apiKey: "AIzaSyCVzCCaJG2c_Mns3d788NM6Ifj_QiyVkk8",
+  authDomain: "education-algeria.firebaseapp.com",
+  projectId: "education-algeria",
+  storageBucket: "education-algeria.firebasestorage.app",
+  messagingSenderId: "329772568704",
+  appId: "1:329772568704:web:ad98730f6789bfd3469665",
+  measurementId: "G-039JRCKDET"
+};
         // ============================================
         // IMPORT FIREBASE MODULES
         // ============================================
