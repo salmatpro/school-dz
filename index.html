@@ -1621,62 +1621,92 @@
         // SCHOOL MANAGER
         // ============================================
         class SchoolManager {
-            static async createSchool(data) {
-                try {
-                    if (!data.name || !data.code) {
-                        throw new Error('اسم المدرسة ورقمها مطلوبان');
-                    }
-                    
-                    const schoolRef = doc(db, 'schools', data.code);
-                    const schoolDoc = await getDoc(schoolRef);
-                    
-                    if (schoolDoc.exists()) {
-                        throw new Error('رقم المدرسة مستخدم بالفعل');
-                    }
-                    
-                    const schoolData = {
-                        ...data,
-                        adminId: AppState.currentUser.uid,
-                        adminEmail: AppState.currentUser.email,
-                        createdAt: serverTimestamp(),
-                        updatedAt: serverTimestamp(),
-                        totalStudents: 0,
-                        totalTeachers: 0
-                    };
-                    
-                    await setDoc(schoolRef, schoolData);
-                    
-                    // Link school to user
-                    await updateDoc(doc(db, 'users', AppState.currentUser.uid), {
-                        schoolCode: data.code,
-                        schoolName: data.name
-                    });
-                    
-                    AppState.currentSchool = schoolData;
-                    localStorage.setItem('currentSchool', JSON.stringify(schoolData));
-                    
-                    return true;
-                } catch (error) {
-                    console.error('Create school error:', error);
-                    Utils.showNotification(error.message, 'error');
-                    return false;
-                }
+    static async createSchool(data) {
+        try {
+            if (!data.name || !data.code) {
+                throw new Error('اسم المدرسة ورقمها مطلوبان');
             }
-
-            static async loadSchool(schoolCode) {
-                try {
-                    const schoolDoc = await getDoc(doc(db, 'schools', schoolCode));
-                    if (schoolDoc.exists()) {
-                        AppState.currentSchool = { id: schoolDoc.id, ...schoolDoc.data() };
-                        return true;
-                    }
-                    return false;
-                } catch (error) {
-                    console.error('Load school error:', error);
-                    return false;
-                }
+            
+            // التحقق من صحة الرقم الرسمي (يجب أن يكون رقمًا)
+            if (!/^\d+$/.test(data.code)) {
+                throw new Error('الرقم الرسمي للمؤسسة يجب أن يكون أرقاماً فقط');
             }
+            
+            const schoolRef = doc(db, 'schools', data.code);
+            const schoolDoc = await getDoc(schoolRef);
+            
+            if (schoolDoc.exists()) {
+                throw new Error('رقم المدرسة مستخدم بالفعل، يرجى اختيار رقم آخر');
+            }
+            
+            const schoolData = {
+                ...data,
+                adminId: AppState.currentUser.uid,
+                adminEmail: AppState.currentUser.email,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                totalStudents: 0,
+                totalTeachers: 0,
+                status: 'active'
+            };
+            
+            await setDoc(schoolRef, schoolData);
+            
+            await updateDoc(doc(db, 'users', AppState.currentUser.uid), {
+                schoolCode: data.code,
+                schoolName: data.name,
+                schoolProvince: data.province
+            });
+            
+            AppState.currentSchool = { id: data.code, ...schoolData };
+            localStorage.setItem('currentSchool', JSON.stringify({
+                id: data.code,
+                name: data.name,
+                code: data.code,
+                province: data.province
+            }));
+            
+            console.log('School created successfully:', data.code);
+            return true;
+            
+        } catch (error) {
+            console.error('Create school error:', error);
+            Utils.showNotification(error.message, 'error');
+            return false;
         }
+    }
+    
+    static async loadSchool(schoolCode) {
+        try {
+            const schoolRef = doc(db, 'schools', schoolCode);
+            const schoolDoc = await getDoc(schoolRef);
+            
+            if (schoolDoc.exists()) {
+                const schoolData = schoolDoc.data();
+                AppState.currentSchool = { 
+                    id: schoolDoc.id, 
+                    ...schoolData 
+                };
+                
+                localStorage.setItem('currentSchool', JSON.stringify({
+                    id: schoolDoc.id,
+                    name: schoolData.name,
+                    code: schoolData.code,
+                    province: schoolData.province
+                }));
+                
+                console.log('School loaded successfully:', schoolDoc.id);
+                return true;
+            } else {
+                console.error('School document does not exist');
+                return false;
+            }
+        } catch (error) {
+            console.error('Load school error:', error);
+            return false;
+        }
+    }
+}
 
         // ============================================
         // STUDENTS MANAGER
@@ -2333,36 +2363,44 @@
                 }
             }
 
-            static async handleSaveSchool() {
-                const schoolData = {
-                    name: elements.schoolName.value.trim(),
-                    code: elements.schoolCode.value.trim(),
-                    province: elements.province.value,
-                    phone: elements.schoolPhone.value.trim()
-                };
-                
-                elements.saveSchoolBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
-                elements.saveSchoolBtn.disabled = true;
-                
-                const success = await SchoolManager.createSchool(schoolData);
-                
-                if (success) {
-                    this.showUploadSection();
-                }
-                
-                elements.saveSchoolBtn.innerHTML = '<i class="fas fa-save"></i> حفظ بيانات المؤسسة والمتابعة';
-                elements.saveSchoolBtn.disabled = false;
-            }
-
-            static showSchoolSetup() {
-                elements.authSection.classList.add('hidden');
-                elements.schoolSetupSection.classList.remove('hidden');
-            }
-
-            static showUploadSection() {
-                elements.schoolSetupSection.classList.add('hidden');
-                elements.uploadSection.classList.remove('hidden');
-            }
+         static async handleSaveSchool() {
+    const schoolData = {
+        name: elements.schoolName.value.trim(),
+        code: elements.schoolCode.value.trim(),
+        province: elements.province.value,
+        phone: elements.schoolPhone.value.trim()
+    };
+    
+    // التحقق من البيانات المطلوبة
+    if (!schoolData.name || !schoolData.code) {
+        Utils.showNotification('يرجى إدخال اسم المدرسة والرقم الرسمي', 'warning');
+        return;
+    }
+    
+    elements.saveSchoolBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الحفظ...';
+    elements.saveSchoolBtn.disabled = true;
+    
+    try {
+        const success = await SchoolManager.createSchool(schoolData);
+        
+        if (success) {
+            // إخفاء رسالة التحميل
+            elements.saveSchoolBtn.innerHTML = '<i class="fas fa-check"></i> تم الحفظ بنجاح!';
+            
+            // الانتظار قليلاً ثم الانتقال
+            setTimeout(() => {
+                this.showUploadSection();
+            }, 1000);
+        } else {
+            elements.saveSchoolBtn.innerHTML = '<i class="fas fa-save"></i> حفظ بيانات المؤسسة والمتابعة';
+            elements.saveSchoolBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error saving school:', error);
+        elements.saveSchoolBtn.innerHTML = '<i class="fas fa-save"></i> حفظ بيانات المؤسسة والمتابعة';
+        elements.saveSchoolBtn.disabled = false;
+    }
+}   
 
             static async showDashboard() {
                 elements.authSection.classList.add('hidden');
